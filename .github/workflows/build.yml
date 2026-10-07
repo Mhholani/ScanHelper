@@ -7,6 +7,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      RELEASES_TOKEN: ${{ secrets.RELEASES_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -30,3 +32,29 @@ jobs:
         with:
           name: ScanHelper-apk
           path: ScanHelper/app/build/outputs/apk/debug/app-debug.apk
+
+      # नया APK public "ScanHelper-releases" repo में डालता है,
+      # जहाँ से ग्राहकों के फ़ोन अपने आप अपडेट उठाते हैं
+      - name: Publish update
+        if: env.RELEASES_TOKEN != ''
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          RELEASES_REPO: ${{ github.repository_owner }}/ScanHelper-releases
+        run: |
+          CODE=$((100 + GITHUB_RUN_NUMBER))
+          NAME="1.${GITHUB_RUN_NUMBER}"
+          git log -1 --pretty=%B > msg.txt
+          cp ScanHelper/app/build/outputs/apk/debug/app-debug.apk ScanHelper.apk
+          python3 - "$CODE" "$NAME" <<'PY'
+          import json, re, sys
+          code, name = int(sys.argv[1]), sys.argv[2]
+          msg = open("msg.txt", encoding="utf-8").read().strip()
+          force = bool(re.search(r"zaroori|zaruri|jaruri|force|ज़रूरी|जरूरी", msg, re.I))
+          notes = "" if msg.lower().startswith("add files via upload") else msg
+          json.dump({"versionCode": code, "versionName": name, "notes": notes, "force": force},
+                    open("version.json", "w", encoding="utf-8"), ensure_ascii=False)
+          print(open("version.json", encoding="utf-8").read())
+          PY
+          gh release create "v$CODE" ScanHelper.apk version.json \
+            --repo "$RELEASES_REPO" --title "Scan Helper $NAME" --notes-file msg.txt --latest \
+          || gh release upload "v$CODE" ScanHelper.apk version.json --repo "$RELEASES_REPO" --clobber

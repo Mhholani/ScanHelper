@@ -36,7 +36,8 @@ jobs:
       # नया APK public "ScanHelper-releases" repo में डालता है,
       # जहाँ से ग्राहकों के फ़ोन अपने आप अपडेट उठाते हैं
       - name: Publish update
-        if: env.RELEASES_TOKEN != ''
+        # सिर्फ़ main ब्रांच से ग्राहकों तक अपडेट जाए; टेस्ट ब्रांच से सिर्फ़ APK बने
+        if: env.RELEASES_TOKEN != '' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
           RELEASES_REPO: ${{ github.repository_owner }}/ScanHelper-releases

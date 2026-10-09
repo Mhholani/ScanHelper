@@ -4,6 +4,9 @@ on:
   push:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -32,6 +35,16 @@ jobs:
         with:
           name: ScanHelper-apk
           path: ScanHelper/app/build/outputs/apk/debug/app-debug.apk
+
+      # टेस्ट ब्रांच: APK को "apk-test" ब्रांच में रख दो (डाउनलोड आसान)
+      - name: Save test APK
+        if: github.ref != 'refs/heads/main'
+        run: |
+          mkdir out && cp ScanHelper/app/build/outputs/apk/debug/app-debug.apk out/ScanHelper-test.apk
+          cd out && git init -q && git checkout -q -b apk-test
+          git add ScanHelper-test.apk
+          git -c user.name=ci -c user.email=ci@local commit -qm "test apk ${GITHUB_SHA}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" apk-test
 
       # नया APK public "ScanHelper-releases" repo में डालता है,
       # जहाँ से ग्राहकों के फ़ोन अपने आप अपडेट उठाते हैं
